@@ -16,3 +16,6 @@ Nous avons aussi avancé sur le script Python afin de préparer la suite du proj
 
 Jour 3
 
+La troisième journée a été consacrée au renforcement final de la sécurité de la VM.
+Nous avons activé UFW, installé et configuré fail2ban, puis consulté les logs pour vérifier le bon fonctionnement des protections.
+Nous avons aussi terminé le script Python d’audit, testé les contrôles de conformité et généré les résultats en JSON et CSV pour le rendu final.
