@@ -1,5 +1,6 @@
 ## Arborescence du dépôt
 
+````text
 TechSud_Projet_Cybersecurite/
 ├── documentation/
 ├── rendu_final/
@@ -8,6 +9,7 @@ TechSud_Projet_Cybersecurite/
 ├── scripts/
 ├── .gitignore
 └── README.md
+````
 
 ## Description des dossiers
 
