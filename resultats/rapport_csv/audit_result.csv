@@ -1,0 +1,23 @@
+key,value
+audit_date,2026-04-15 10:38:17
+hostname,tech
+ssh_service_status,active
+ssh_configured_port,2222
+ssh_permit_root_login,no
+ufw_status,actif
+fail2ban_installed,True
+fail2ban_status,active
+open_ports,"53, 68, 2222"
+active_services,"cron.service, dbus.service, fail2ban.service, fwupd.service, getty@tty1.service, ModemManager.service, multipathd.service, polkit.service, rsyslog.service, ssh.service, systemd-journald.service, systemd-logind.service, systemd-networkd.service, systemd-resolved.service, systemd-udevd.service, udisks2.service, unattended-upgrades.service, upower.service, user@1000.service, user@1001.service, vboxadd-service.service"
+interactive_shell_users,"root, tech, admintech"
+validated_checks,9
+total_checks,9
+compliance_ssh_active,True
+compliance_ssh_custom_port,True
+compliance_ssh_port_listening,True
+compliance_root_login_disabled,True
+compliance_ufw_active,True
+compliance_fail2ban_installed,True
+compliance_fail2ban_active,True
+compliance_fail2ban_sshd_active,True
+compliance_password_auth_disabled,True
