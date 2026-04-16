@@ -1,10 +1,9 @@
-# Affiche un titre au lancement du script
-print("=== Audit TechSud ===")
 # subprocess = commandes système | export JSON/CSV | socket = infos réseau
 import subprocess, json, csv, socket
 
 from datetime import datetime
 from pathlib import Path
+
 
 # Exécute une commande système et récupère le résultat
 def run_command(command):
@@ -12,12 +11,14 @@ def run_command(command):
     return {
         "stdout": result.stdout.strip(),
         "stderr": result.stderr.strip(),
-        "returncode": result.returncode
+        "returncode": result.returncode,
     }
+
 
 # Récupère le nom de la machine
 def get_hostname():
     return socket.gethostname()
+
 
 # Vérifie si SSH est actif
 def get_ssh_status():
@@ -26,6 +27,7 @@ def get_ssh_status():
         return result["stdout"]
     return "inconnu"
 
+
 # Vérifie si fail2ban est actif
 def get_fail2ban_status():
     result = run_command("systemctl is-active fail2ban")
@@ -33,10 +35,18 @@ def get_fail2ban_status():
         return result["stdout"]
     return "inconnu"
 
+
+# Vérifie si fail2ban est actif pour le service sshd
+def get_fail2ban_sshd_status():
+    result = run_command("fail2ban-client status sshd")
+    return result["returncode"] == 0
+
+
 # Vérifie si fail2ban est installé
 def get_fail2ban_installed():
     result = run_command("dpkg -l | grep fail2ban")
     return result["returncode"] == 0 and result["stdout"] != ""
+
 
 # Vérifie si UFW est actif
 def get_ufw_status():
@@ -45,10 +55,12 @@ def get_ufw_status():
         return "actif"
     return "inactif"
 
+
 # Lit la configuration SSH
 def get_ssh_config():
     port = "22"
     root_login = "inconnu"
+    password_authentication = "inconnu"
 
     try:
         with open("/etc/ssh/sshd_config", "r", encoding="utf-8") as file:
@@ -64,13 +76,18 @@ def get_ssh_config():
                 if line.startswith("PermitRootLogin "):
                     root_login = line.split()[1]
 
+                if line.startswith("PasswordAuthentication "):
+                    password_authentication = line.split()[1]
+
     except:
         pass
 
     return {
         "port": port,
-        "root_login": root_login
+        "root_login": root_login,
+        "password_authentication": password_authentication,
     }
+
 
 # Récupère la liste des ports ouverts
 def get_open_ports():
@@ -96,9 +113,12 @@ def get_open_ports():
 
     return sorted(ports, key=int)
 
+
 # Récupère la liste des services actifs
 def get_active_services():
-    result = run_command("systemctl list-units --type=service --state=running --no-pager --no-legend")
+    result = run_command(
+        "systemctl list-units --type=service --state=running --no-pager --no-legend"
+    )
     services = []
 
     for line in result["stdout"].splitlines():
@@ -110,6 +130,7 @@ def get_active_services():
         services.append(line.split()[0])
 
     return services
+
 
 # Récupère les utilisateurs ayant un shell interactif
 def get_shell_users():
@@ -137,8 +158,17 @@ def get_shell_users():
 
     return users
 
+
 # Vérifie quelques points simples de conformité
-def build_compliance(ssh_status, ssh_config, ufw_status, fail2ban_installed, fail2ban_status, open_ports):
+def build_compliance(
+    ssh_status,
+    ssh_config,
+    ufw_status,
+    fail2ban_installed,
+    fail2ban_status,
+    fail2ban_sshd_active,
+    open_ports,
+):
     ssh_port = ssh_config["port"]
 
     return {
@@ -148,8 +178,11 @@ def build_compliance(ssh_status, ssh_config, ufw_status, fail2ban_installed, fai
         "root_login_disabled": ssh_config["root_login"].lower() == "no",
         "ufw_active": ufw_status == "actif",
         "fail2ban_installed": fail2ban_installed,
-        "fail2ban_active": fail2ban_status == "active"
+        "fail2ban_active": fail2ban_status == "active",
+        "fail2ban_sshd_active": fail2ban_sshd_active,
+        "password_auth_disabled": ssh_config["password_authentication"].lower() == "no",
     }
+
 
 # Construit le rapport complet
 def build_report():
@@ -159,6 +192,7 @@ def build_report():
     ufw_status = get_ufw_status()
     fail2ban_installed = get_fail2ban_installed()
     fail2ban_status = get_fail2ban_status()
+    fail2ban_sshd_active = get_fail2ban_sshd_status()
     open_ports = get_open_ports()
     active_services = get_active_services()
     shell_users = get_shell_users()
@@ -169,7 +203,8 @@ def build_report():
         ufw_status,
         fail2ban_installed,
         fail2ban_status,
-        open_ports
+        fail2ban_sshd_active,
+        open_ports,
     )
 
     compliance_ok = sum(1 for value in compliance.values() if value)
@@ -181,24 +216,26 @@ def build_report():
         "ssh": {
             "service_status": ssh_status,
             "configured_port": ssh_config["port"],
-            "permit_root_login": ssh_config["root_login"]
+            "permit_root_login": ssh_config["root_login"],
+            "password_authentication": ssh_config["password_authentication"],
         },
         "security_tools": {
             "ufw_status": ufw_status,
             "fail2ban_installed": fail2ban_installed,
-            "fail2ban_status": fail2ban_status
+            "fail2ban_status": fail2ban_status,
         },
         "system": {
             "open_ports": open_ports,
             "active_services": active_services,
-            "interactive_shell_users": shell_users
+            "interactive_shell_users": shell_users,
         },
         "compliance": compliance,
         "summary": {
             "validated_checks": compliance_ok,
-            "total_checks": compliance_total
-        }
+            "total_checks": compliance_total,
+        },
     }
+
 
 # Affiche un résumé lisible dans le terminal
 def print_summary(report):
@@ -210,6 +247,7 @@ def print_summary(report):
     print("Statut :", report["ssh"]["service_status"])
     print("Port configuré :", report["ssh"]["configured_port"])
     print("PermitRootLogin :", report["ssh"]["permit_root_login"])
+    print("PasswordAuthentication :", report["ssh"]["password_authentication"])
 
     print("\n--- Outils de sécurité ---")
     print("UFW :", report["security_tools"]["ufw_status"])
@@ -244,12 +282,14 @@ def print_summary(report):
         f"{report['summary']['total_checks']} contrôles validés"
     )
 
+
 # Exporte le rapport en JSON
 def export_json(report, output_dir):
     output_path = output_dir / "audit_result.json"
 
     with open(output_path, "w", encoding="utf-8") as file:
         json.dump(report, file, indent=4, ensure_ascii=False)
+
 
 # Exporte le rapport en CSV
 def export_csv(report, output_dir):
@@ -266,9 +306,12 @@ def export_csv(report, output_dir):
         ["fail2ban_status", report["security_tools"]["fail2ban_status"]],
         ["open_ports", ", ".join(report["system"]["open_ports"])],
         ["active_services", ", ".join(report["system"]["active_services"])],
-        ["interactive_shell_users", ", ".join(report["system"]["interactive_shell_users"])],
+        [
+            "interactive_shell_users",
+            ", ".join(report["system"]["interactive_shell_users"]),
+        ],
         ["validated_checks", report["summary"]["validated_checks"]],
-        ["total_checks", report["summary"]["total_checks"]]
+        ["total_checks", report["summary"]["total_checks"]],
     ]
 
     for key, value in report["compliance"].items():
@@ -279,9 +322,10 @@ def export_csv(report, output_dir):
         writer.writerow(["key", "value"])
         writer.writerows(rows)
 
+
 # Fonction principale
 def main():
-    base_dir = Path(__file__).resolve().parent.parent
+    base_dir = Path(__file__).resolve().parent
     output_dir = base_dir / "results"
     output_dir.mkdir(exist_ok=True)
 
@@ -289,6 +333,7 @@ def main():
     print_summary(report)
     export_json(report, output_dir)
     export_csv(report, output_dir)
+
 
 # Lance le script
 if __name__ == "__main__":
